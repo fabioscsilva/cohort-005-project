@@ -14,6 +14,8 @@ import {
   listTeamLicences,
   raiseRefundRequest,
 } from "./refunds.server";
+import { isBookmarked, toggleBookmark } from "./bookmarks.server";
+import { getNote, saveNote } from "./notes.server";
 import {
   fakeNotifications,
   type FakeNotifications,
@@ -297,6 +299,22 @@ describe("approving a Refund Request", () => {
       status: RefundStatus.Approved,
       amountRefunded: 7900,
       resolvedByUserId: platformAdmin.id,
+    });
+  });
+
+  it("keeps the buyer's Bookmarks and Notes", async () => {
+    const purchase = buyForSelf(base.user.id);
+    toggleBookmark(db, base.user.id, lessonIds[0], NOW);
+    saveNote(db, base.user.id, lessonIds[1], "Come back to this.", NOW);
+    const id = await raise(purchase.id, base.user.id);
+
+    const result = await approveRefundRequest(db, id, platformAdmin.id, null, NOW, notifications);
+
+    expect(result.ok).toBe(true);
+    expect(isEnrolled(base.user.id)).toBe(false);
+    expect(isBookmarked(db, base.user.id, lessonIds[0])).toBe(true);
+    expect(getNote(db, base.user.id, lessonIds[1])).toMatchObject({
+      body: "Come back to this.",
     });
   });
 
